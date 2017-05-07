@@ -32,6 +32,8 @@ func main() {
 	// window.SetVerticalSyncEnabled(true)
 	// window.SetFramerateLimit(60)
 	rects := make(map[byte]*sf.RectangleShape)
+	texts := make(map[byte]*sf.Text)
+
 	colors := []sf.Color{sf.ColorBlue, sf.ColorRed, sf.ColorGreen, sf.ColorCyan, sf.ColorMagenta, sf.ColorYellow, sf.ColorWhite}
 
 	time.Sleep(500 * time.Millisecond)
@@ -40,14 +42,13 @@ func main() {
 
 	fmt.Println("TRACKS:", len(p.Tracks))
 
-	// lock := sync.RWMutex{}
+	arial := sf.NewFont("Arial.ttf")
 
 	for i, t := range p.Tracks {
 		go func(i int, t *midi.Track) {
 			for {
 				note := <-t.Notes
 				p.PlayNote(note)
-				fmt.Println("Track", i, "-", note.Channel.GetInstrument(), "- Pitch", note.Pitch, "-", note.On)
 				channelID := note.Channel.ID
 
 				if _, ok := rects[channelID]; !ok {
@@ -55,9 +56,14 @@ func main() {
 					rect.SetOrigin(sf.Vector2f{20, 20})
 					rect.SetOutlineThickness(5)
 					rect.SetOutlineColor(colors[int(channelID)%len(colors)])
-					// lock.Lock()
 					rects[channelID] = rect
-					// lock.Unlock()
+
+					text := sf.NewText(p.GetInstrument(note.Channel), arial, 15)
+					text.SetColor(colors[int(channelID)%len(colors)])
+					text.SetPosition(sf.Vector2f{10, float32(100 + int(channelID)*50)})
+
+					texts[channelID] = text
+
 				}
 
 				rect := rects[channelID]
@@ -101,11 +107,12 @@ func main() {
 
 		window.Clear(sf.ColorBlack)
 
-		// lock.RLock()
 		for _, r := range rects {
 			window.Draw(r)
 		}
-		// lock.RUnlock()
+		for _, t := range texts {
+			window.Draw(t)
+		}
 
 		window.Display()
 	}

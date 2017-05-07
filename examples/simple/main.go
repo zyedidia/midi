@@ -28,7 +28,7 @@ func main() {
 			for {
 				note := <-t.Notes
 				p.PlayNote(note)
-				fmt.Println("Track", i, "-", note.Channel.ID, note.Channel.GetInstrument(), "- Pitch", note.Pitch, "-", note.On)
+				fmt.Println("Track", i, "-", note.Channel.ID, p.GetInstrument(note.Channel), "- Pitch", note.Pitch, "-", note.On)
 			}
 		}(i, t)
 	}
