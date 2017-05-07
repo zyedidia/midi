@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/zyedidia/midi"
@@ -12,7 +13,7 @@ import (
 
 const (
 	screenWidth  = 800
-	screenHeight = 800
+	screenHeight = 1000
 )
 
 func main() {
@@ -43,6 +44,10 @@ func main() {
 	fmt.Println("TRACKS:", len(p.Tracks))
 
 	arial := sf.NewFont("Arial.ttf")
+	whiteSquare := sf.NewEmptyImageFromColor(40, 40, sf.ColorWhite)
+	texture := sf.NewTextureFromImage(whiteSquare)
+
+	lock := sync.RWMutex{}
 
 	for i, t := range p.Tracks {
 		go func(i int, t *midi.Track) {
@@ -54,23 +59,29 @@ func main() {
 				if _, ok := rects[channelID]; !ok {
 					rect := sf.NewRectangleShape(sf.Vector2f{40, 40})
 					rect.SetOrigin(sf.Vector2f{20, 20})
-					rect.SetOutlineThickness(5)
-					rect.SetOutlineColor(colors[int(channelID)%len(colors)])
-					rects[channelID] = rect
+					// rect.SetOutlineThickness(5)
+					// rect.SetOutlineColor(colors[int(channelID)%len(colors)])
+					rect.SetFillColor(colors[int(channelID)%len(colors)])
+					rect.SetTexture(texture, true)
 
 					text := sf.NewText(p.GetInstrument(note.Channel), arial, 15)
 					text.SetColor(colors[int(channelID)%len(colors)])
 					text.SetPosition(sf.Vector2f{10, float32(100 + int(channelID)*50)})
 
+					lock.Lock()
+					rects[channelID] = rect
 					texts[channelID] = text
-
+					lock.Unlock()
 				}
 
 				rect := rects[channelID]
+				color := rect.GetFillColor()
 				if note.On {
-					rect.SetFillColor(colors[int(channelID)%len(colors)])
+					color.A = 255
+					rect.SetFillColor(color)
 				} else {
-					rect.SetFillColor(sf.ColorBlack)
+					color.A = 100
+					rect.SetFillColor(color)
 				}
 				rect.SetPosition(sf.Vector2f{float32(note.Pitch) / float32(127) * screenWidth, float32(100 + int(channelID)*50)})
 			}
@@ -107,12 +118,14 @@ func main() {
 
 		window.Clear(sf.ColorBlack)
 
+		lock.RLock()
 		for _, r := range rects {
 			window.Draw(r)
 		}
 		for _, t := range texts {
 			window.Draw(t)
 		}
+		lock.RUnlock()
 
 		window.Display()
 	}
