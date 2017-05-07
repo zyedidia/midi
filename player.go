@@ -4,6 +4,10 @@ package midi
 #cgo CFLAGS: -I/usr/local/include
 #cgo LDFLAGS: -L/usr/local/lib -lfluidsynth
 #include <fluidsynth.h>
+char* go_sfont_get_name(fluid_sfont_t* sfont) {
+    // sfont->get_name(sfont);
+	return "test";
+}
 */
 import "C"
 
@@ -109,14 +113,16 @@ func NewPlayer(soundfont, midipath string) (*Player, error) {
 func (p *Player) Start() {
 	midiTracks := p.midi.Tracks()
 
+	// Default 120 bpm tempo
+	// This can be overridden by a meta event
+	tempo := int32(oneMinuteInMicroseconds / 120)
+	ppqn := p.midi.Header().Division().(*midi.MetricalDivision).Resolution()
+
 	for i, t := range midiTracks {
 		events := t.Events()
 		track := p.Tracks[i]
 
 		go func() {
-			// Default 120 bpm tempo
-			// This can be overridden by a meta event
-			tempo := int32(oneMinuteInMicroseconds / 120)
 			for _, e := range events {
 				switch ev := e.(type) {
 				case *midi.SysexEvent:
@@ -135,7 +141,7 @@ func (p *Player) Start() {
 				case *midi.MidiEvent:
 					data := ev.Data()
 					dt := ev.DeltaTime()
-					time.Sleep(time.Duration(dt) * time.Duration(float64(tempo)/100) * time.Microsecond)
+					time.Sleep(time.Duration(float64(dt)*float64(tempo)/float64(ppqn)*1000) * time.Nanosecond)
 
 					str := fmt.Sprintf("%x", ev.Status())
 					channelID, _ := strconv.ParseInt(string(str[1]), 16, 32)
@@ -154,7 +160,12 @@ func (p *Player) Start() {
 					if str[0] == '8' {
 						track.Notes <- Note{channel, data[0], data[1], false}
 					} else if str[0] == '9' {
-						track.Notes <- Note{channel, data[0], data[1], true}
+						noteon := true
+						if data[1] == 0 {
+							// velocity = 0 also means note off even if sent in a note on event
+							noteon = false
+						}
+						track.Notes <- Note{channel, data[0], data[1], noteon}
 					} else if str[0] == 'a' {
 					} else if str[0] == 'b' {
 						C.fluid_synth_cc(p.fluidsynth, C.int(channelID), C.int(data[0]), C.int(data[1]))
@@ -203,11 +214,14 @@ type Channel struct {
 }
 
 // GetInstrument returns the instrument that this channel is using to play notes
-func (c *Channel) GetInstrument() string {
-	// if c.ID == 10 {
-	// 	return percussionInstruments[c.program]
-	// }
-	return instruments[c.program]
+func (p *Player) GetInstrument(channel *Channel) string {
+	// sfont := C.fluid_synth_get_sfont_by_id(p.fluidsynth, C.uint(channel.ID))
+	// name := C.go_sfont_get_name(sfont)
+	// return C.GoString(name)
+	if channel.ID == 10 {
+		return "Percussion"
+	}
+	return instruments[channel.program]
 }
 
 // A Note holds the information to play a pitch in the song
