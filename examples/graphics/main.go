@@ -43,7 +43,7 @@ func main() {
 
 	fmt.Println("TRACKS:", len(p.Tracks))
 
-	arial := sf.NewFont("Arial.ttf")
+	arial := sf.NewFont("../assets/Arial.ttf")
 	whiteSquare := sf.NewEmptyImageFromColor(40, 40, sf.ColorWhite)
 	texture := sf.NewTextureFromImage(whiteSquare)
 
